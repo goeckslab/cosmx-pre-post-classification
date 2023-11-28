@@ -4,10 +4,10 @@ import os
 from typing import List
 
 
-def load_patient(patient: str) -> pd.DataFrame:
+def load_patient(patient: str) -> {}:
     data_path = Path("data", "mapped_data")
 
-    data_frames: [pd.DataFrame] = []
+    data_frames: dict = {}
 
     for root, dirs, files in os.walk(data_path):
         for file in files:
@@ -20,9 +20,8 @@ def load_patient(patient: str) -> pd.DataFrame:
 
             print(file)
 
-            data_frames.append(pd.read_csv(Path(data_path, file)))
+            data_frames[Path(file).stem] = pd.read_csv(Path(data_path, file))
 
-    data_frames = pd.concat(data_frames, axis=0)
     return data_frames
 
 

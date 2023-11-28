@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import files
 import numpy as np
+from typing import List
 
 patients = ["patient_a", "patient_b", "patient_c", "patient_d"]
 
@@ -41,24 +42,19 @@ if __name__ == '__main__':
     results = []
     for patient in patients:
         train_set, _ = files.load_files(patient)
-        test_set = files.load_patient(patient=patient)
+        test_sets: dict = files.load_patient(patient=patient)
 
         train_set = train_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
-        test_set = test_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
         # label encoder treatment
         le = LabelEncoder()
         train_set["Treatment"] = le.fit_transform(train_set["Treatment"])
-        test_set["Treatment"] = le.fit_transform(test_set["Treatment"])
 
         y_train = train_set["Treatment"]
-        y_test = test_set["Treatment"]
 
         train_set = train_set.drop(columns=["Treatment"])
-        test_set = test_set.drop(columns=["Treatment"])
 
         min_max_scaler = MinMaxScaler(feature_range=(0, 1))
         train_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(train_set + 1)), columns=train_set.columns)
-        test_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(test_set + 1)), columns=test_set.columns)
 
         # Create a Sequential model
         model = Sequential([
@@ -80,19 +76,38 @@ if __name__ == '__main__':
         # Assuming X_train and y_train are your training data and labels
         history = model.fit(train_set, y_train, epochs=10, validation_split=0.2)
 
-        evaluation = model.evaluate(test_set, y_test)
+        for file_name, test_set in test_sets.items():
+            test_set = test_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
+            # label encoder treatment
+            le = LabelEncoder()
+            treatment = test_set["Treatment"].iloc[0]
+            test_set["Treatment"] = le.fit_transform(test_set["Treatment"])
 
-        results.append({"Accuracy": evaluation[1], "Patient": patient, "Model": "Sparse Neural Network"})
+            y_test = test_set["Treatment"]
 
-        # predict
-        predictions = model.predict(test_set)
-        predictions = pd.DataFrame(data=np.argmax(predictions, axis=1), columns=["Predictions"])
+            test_set = test_set.drop(columns=["Treatment"])
 
-        predicted_classes: pd.DataFrame = pd.DataFrame()
-        predicted_classes["Single Cell Id"] = y_test.index
-        predicted_classes["GT"] = y_test.values
-        predicted_classes["Predicted"] = predictions["Predictions"].values
-        class_predictions[patient] = predicted_classes
+            min_max_scaler = MinMaxScaler(feature_range=(0, 1))
+            test_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(test_set + 1)), columns=test_set.columns)
+
+            evaluation = model.evaluate(test_set, y_test)
+
+            results.append(
+                {"Accuracy": evaluation[1], "Patient": patient, "Model": "Sparse Neural Network", "File": file_name,
+                 "Treatment": treatment})
+
+            # predict
+            predictions = model.predict(test_set)
+            predictions = pd.DataFrame(data=np.argmax(predictions, axis=1), columns=["Predictions"])
+
+            predicted_classes: pd.DataFrame = pd.DataFrame()
+            predicted_classes["Single Cell Id"] = y_test.index
+            predicted_classes["GT"] = y_test.values
+            predicted_classes["Predicted"] = predictions["Predictions"].values
+            class_predictions[file_name] = predicted_classes
+
+            # save model
+            model.save(Path(save_path, f"{file_name}_model.keras"))
 
     results = pd.DataFrame.from_records(data=results)
     results.to_csv("accuracy.csv")
