@@ -1,11 +1,11 @@
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.models import Sequential
+from pathlib import Path
+import argparse
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import files
-import argparse
-from pathlib import Path
 import numpy as np
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
 
 patients = ["patient_a", "patient_b", "patient_c", "patient_d"]
 
@@ -37,9 +37,6 @@ if __name__ == '__main__':
     # parser.add_argument("-p", "--patient", required=True, help="Patient to be excluded", type=str)
 
     args = parser.parse_args()
-
-    # patient: str = args.patient
-    # test_file_path: Path = args.test_file
     class_predictions: dict = {}
     results = []
     for patient in patients:
@@ -63,16 +60,33 @@ if __name__ == '__main__':
         train_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(train_set + 1)), columns=train_set.columns)
         test_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(test_set + 1)), columns=test_set.columns)
 
-        # train decision tree classifier
-        clf = DecisionTreeClassifier()
-        clf.fit(train_set, y_train)
+        # Create a Sequential model
+        model = Sequential([
+            Dense(128, activation='relu', input_shape=(len(train_set.columns),)),
+            Dropout(0.3),
+            Dense(64, activation='relu'),
+            Dropout(0.3),  # Dropout layer after the first Dense layer
+            Dense(2, activation='softmax')  # Output layer with softmax activation for multi-class classification
+        ])
+
+        # Compile the model
+        model.compile(optimizer='adam',
+                      loss='sparse_categorical_crossentropy',  # Using sparse categorical crossentropy
+                      metrics=['accuracy'])
+
+        # Summary of the model
+        model.summary()
+
+        # Assuming X_train and y_train are your training data and labels
+        history = model.fit(train_set, y_train, epochs=10, validation_split=0.2)
+
+        evaluation = model.evaluate(test_set, y_test)
+
+        results.append({"Accuracy": evaluation[1], "Patient": patient, "Model": "Sparse Neural Network"})
+
         # predict
-        predictions = pd.DataFrame(data=clf.predict(test_set), columns=["Predictions"])
-
-        # score decision tree
-        accuracy = clf.score(test_set, y_test)
-
-        results.append({"Accuracy": accuracy, "Patient": patient, "Model": "Decision Tree"})
+        predictions = model.predict(test_set)
+        predictions = pd.DataFrame(data=np.argmax(predictions, axis=1), columns=["Predictions"])
 
         predicted_classes: pd.DataFrame = pd.DataFrame()
         predicted_classes["Single Cell Id"] = y_test.index

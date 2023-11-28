@@ -1,0 +1,8 @@
+tqdm
+tensorflow
+scipy
+seaborn
+shap
+numpy
+matplotlib
+anndata

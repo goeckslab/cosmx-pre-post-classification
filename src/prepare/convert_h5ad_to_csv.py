@@ -26,6 +26,10 @@ for file in Path("data/h5ad").iterdir():
     sample_id = sample_id.replace(".h5ad", "")
 
     data = an.read_h5ad(file)
+
+    print(data.obs)
+    print(data.var)
+    input()
     # convert h5ad to pandas dataframe
     df = pd.DataFrame(data.X, index=data.obs.index, columns=data.var.index)
     # find Patient ID in metadata associated with the sample id
