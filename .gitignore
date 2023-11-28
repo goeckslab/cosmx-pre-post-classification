@@ -5,3 +5,4 @@ data/*
 *.csv
 *.png
 __pycache__
+*.keras
