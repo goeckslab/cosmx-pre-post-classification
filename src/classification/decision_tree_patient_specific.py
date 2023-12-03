@@ -44,44 +44,55 @@ if __name__ == '__main__':
     results = []
     for patient in patients:
         train_set, _ = files.load_files(patient)
-        test_set = files.load_patient(patient=patient)
+        test_sets: dict = files.load_patient(patient=patient)
 
         train_set = train_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
-        test_set = test_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
+
         # label encoder treatment
         le = LabelEncoder()
         train_set["Treatment"] = le.fit_transform(train_set["Treatment"])
-        test_set["Treatment"] = le.fit_transform(test_set["Treatment"])
-
         y_train = train_set["Treatment"]
-        y_test = test_set["Treatment"]
-
         train_set = train_set.drop(columns=["Treatment"])
-        test_set = test_set.drop(columns=["Treatment"])
-
         min_max_scaler = MinMaxScaler(feature_range=(0, 1))
+
         train_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(train_set + 1)), columns=train_set.columns)
-        test_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(test_set + 1)), columns=test_set.columns)
 
         # train decision tree classifier
         clf = DecisionTreeClassifier()
         clf.fit(train_set, y_train)
-        # predict
-        predictions = pd.DataFrame(data=clf.predict(test_set), columns=["Predictions"])
 
-        # score decision tree
-        accuracy = clf.score(test_set, y_test)
+        for file_name, test_set in test_sets.items():
+            test_set = test_set.drop(columns=["Patient Id", "Sample Id", "CellID", "MouseIgG1"])
+            # label encoder treatment
+            le = LabelEncoder()
+            treatment = test_set["Treatment"].iloc[0]
+            test_set["Treatment"] = le.fit_transform(test_set["Treatment"])
 
-        results.append({"Accuracy": accuracy, "Patient": patient, "Model": "Decision Tree"})
+            y_test = test_set["Treatment"]
 
-        predicted_classes: pd.DataFrame = pd.DataFrame()
-        predicted_classes["Single Cell Id"] = y_test.index
-        predicted_classes["GT"] = y_test.values
-        predicted_classes["Predicted"] = predictions["Predictions"].values
-        class_predictions[patient] = predicted_classes
+            test_set = test_set.drop(columns=["Treatment"])
+
+            min_max_scaler = MinMaxScaler(feature_range=(0, 1))
+            test_set = pd.DataFrame(min_max_scaler.fit_transform(np.log10(test_set + 1)), columns=test_set.columns)
+
+            # predict
+            predictions = pd.DataFrame(data=clf.predict(test_set), columns=["Predictions"])
+
+            # score decision tree
+            accuracy = clf.score(test_set, y_test)
+
+            results.append(
+                {"Accuracy": accuracy, "Patient": patient, "Model": "Decision Tree", "File": file_name,
+                 "Treatment": treatment})
+
+            predicted_classes: pd.DataFrame = pd.DataFrame()
+            predicted_classes["Single Cell Id"] = y_test.index
+            predicted_classes["GT"] = y_test.values
+            predicted_classes["Predicted"] = predictions["Predictions"].values
+            class_predictions[file_name] = predicted_classes
 
     results = pd.DataFrame.from_records(data=results)
     results.to_csv("accuracy.csv")
     results.to_csv(Path(save_path, "accuracy.csv"), index=False)
-    for patient in class_predictions.keys():
-        class_predictions[patient].to_csv(Path(save_path, f"{patient}_class_predictions.csv"), index=False)
+    for file_name in class_predictions.keys():
+        class_predictions[file_name].to_csv(Path(save_path, f"{file_name}_class_predictions.csv"), index=False)

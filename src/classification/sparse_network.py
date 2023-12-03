@@ -50,7 +50,6 @@ if __name__ == '__main__':
         train_set["Treatment"] = le.fit_transform(train_set["Treatment"])
 
         y_train = train_set["Treatment"]
-
         train_set = train_set.drop(columns=["Treatment"])
 
         min_max_scaler = MinMaxScaler(feature_range=(0, 1))
@@ -94,7 +93,7 @@ if __name__ == '__main__':
 
             results.append(
                 {"Accuracy": evaluation[1], "Patient": patient, "Model": "Sparse Neural Network", "File": file_name,
-                 "Treatment": treatment})
+                 "Treatment": treatment, "Cell Count": len(test_set)})
 
             # predict
             predictions = model.predict(test_set)
@@ -112,5 +111,5 @@ if __name__ == '__main__':
     results = pd.DataFrame.from_records(data=results)
     results.to_csv("accuracy.csv")
     results.to_csv(Path(save_path, "accuracy.csv"), index=False)
-    for patient in class_predictions.keys():
-        class_predictions[patient].to_csv(Path(save_path, f"{patient}_class_predictions.csv"), index=False)
+    for file_name in class_predictions.keys():
+        class_predictions[file_name].to_csv(Path(save_path, f"{file_name}_class_predictions.csv"), index=False)
