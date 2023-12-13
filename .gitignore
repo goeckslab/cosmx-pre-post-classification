@@ -6,3 +6,5 @@ data/*
 *.png
 __pycache__
 *.keras
+.ipynb_*
+logs.log
