@@ -4,8 +4,10 @@ from pathlib import Path
 import numpy as np
 import argparse
 import scanpy as sc
+from tqdm import tqdm
 
 save_path = Path("data", "csv")
+metadata = pd.read_excel("data/Confidential-SMMART Patient Metadata_23MAY2022.xlsx")
 
 if __name__ == '__main__':
 
@@ -30,17 +32,21 @@ if __name__ == '__main__':
             continue
 
         print(f"Processing {biopsy_file}")
+        # create new variable sampple id, extract it from the last part of the file name and drop BEMS
+        sample_id = biopsy_file.name.split("_")[-1].replace("BEMS", "")
+        sample_id = sample_id.replace(".h5ad", "")
+        patient_id = metadata[metadata["Sample ID"] == int(sample_id)]["De-identified Patient ID"].values[0]
 
         # load h5ad file
         adata = sc.read_h5ad(biopsy_file)
-        observations = adata.obs
-        # extract X_centroid and Y_centroid from observations
-        spatial_information: pd.DataFrame = observations[["X_centroid", "Y_centroid"]]
+        proteins: pd.DataFrame = pd.DataFrame(data=adata.X, columns=adata.var_names).copy()
 
-        df = pd.read_csv(biopsy_file, sep="\t")
+        spatial_information: pd.DataFrame = adata.obs[["X_centroid", "Y_centroid"]]
+        spatial_information.reset_index(drop=True, inplace=True)
+
         # adata_copy = adata.copy()
         # Build the BallTree
-        cell_locs = df['X_centroid', 'Y_centroid'].values
+        cell_locs = spatial_information[['X_centroid', 'Y_centroid']].values
         tree = BallTree(cell_locs)
 
         # Create community spot for each cell.
@@ -51,14 +57,14 @@ if __name__ == '__main__':
             # if len(indices) < 5:
             #     continue
             # print(f"Found {len(indices)} cells within distance 30 from cell {index}")
-            community = df[indices]
+            community = adata.X[indices]
             c_mean = community.mean(axis=0)
 
-            print(f"Community mean:")
-            print(c_mean)
-            df[index] = c_mean
+            adata.X[index] = c_mean
 
-        print(df)
+        df = pd.DataFrame(adata.X, index=adata.obs.index, columns=adata.var.index)
+        df["Patient Id"] = patient_id
+        df["Sample Id"] = sample_id
 
         # save biopsy
-        df.to_csv(Path(save_path, biopsy_file.name), sep="\t", index=False)
+        df.to_csv(Path(save_path, f"{patient_id.replace(' ', '_').lower()}_{sample_id}.csv"), index=False)

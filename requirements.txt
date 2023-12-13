@@ -6,3 +6,7 @@ shap
 numpy
 matplotlib
 anndata
+jupyterlab
+pycaret[analysis]
+interpret-community
+scanpy
