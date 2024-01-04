@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 save_path = Path("data_2", "csv")
 metadata = pd.read_excel("data/Confidential-SMMART Patient Metadata_23MAY2022.xlsx")
-SHARED_MARKERS = ['pRB', 'CD45', 'CK19', 'Ki67', 'aSMA', 'Ecad', 'PR', 'CK14', 'HER2', 'AR', 'CK17', 'p21', 'Vimentin',
+V2_SHARED_MARKERS = ['pRB', 'CD45', 'CK19', 'Ki67', 'aSMA', 'Ecad', 'PR', 'CK14', 'HER2', 'AR', 'CK17', 'p21', 'Vimentin',
                   'pERK', 'EGFR', 'ER']
 
 if __name__ == '__main__':
@@ -75,7 +75,7 @@ if __name__ == '__main__':
             # save biopsy
             df.to_csv(Path(save_path, f"{patient_id.replace(' ', '_').lower()}_{sample_id}.csv"), index=False)
 
-    else:
+    elif data_version == "v2":
         biopsy_folder = Path("data_2", "csv", "0")
 
         for biopsy_file in biopsy_folder.iterdir():
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
             df = pd.read_csv(biopsy_file, sep=",")
 
-            proteins = df[SHARED_MARKERS].copy()
+            proteins = df[V2_SHARED_MARKERS].copy()
 
             # Build the BallTree
             cell_locs = df[['X_centroid', 'Y_centroid']].values
@@ -111,3 +111,9 @@ if __name__ == '__main__':
 
             # save biopsy
             df.to_csv(Path(save_path, f"{patient_id.replace(' ', '_').lower()}.csv"), index=False)
+
+    elif data_version == "v3":
+        pass
+
+    else:
+        raise ValueError("Unknown data version")
